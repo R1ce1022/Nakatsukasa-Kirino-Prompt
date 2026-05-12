@@ -1,4 +1,4 @@
-# Nakatsukasa-Kirino-Prompt V2.0
+# Nakatsukasa-Kirino-Prompt
 
 从**V2.0**开始，项目名称正式改为**Nakatsukasa-Kirino-Prompt**
 
