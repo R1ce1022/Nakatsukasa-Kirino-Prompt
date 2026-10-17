@@ -5,11 +5,12 @@
 用法：
     python tools/build_card.py
     python tools/build_card.py --avatar 你的立绘.png
+    python tools/build_card.py --avatar 你的立绘.png --fit contain
     python tools/build_card.py --check
 
 脚本以 Nakatsukasa-Kirino-Card.json 为唯一内容源：
 1. 校验 V2 结构；
-2. 生成（或裁剪）512x768 头像；
+2. 生成头像（cover 居中裁剪 / contain 完整留边；未指定 --avatar 时沿用现有卡片头像）；
 3. 把压缩后的 V2 JSON 以 base64 写进 PNG 的 chara tEXt chunk；
 4. 回读 PNG，确认内嵌数据与源 JSON 完全一致。
 """
@@ -409,17 +410,25 @@ def _star(cx: float, cy: float, radius: float) -> list[tuple[float, float]]:
     return points
 
 
-def render_placeholder():
-    Image, ImageDraw, ImageFilter, ImageFont, ImageOps = _pillow()
-    width, height = AVATAR_WIDTH, AVATAR_HEIGHT
-    image = Image.new("RGB", (width, height), (240, 249, 255))
+def _gradient(size):
+    Image, ImageDraw, _ImageFilter, _ImageFont, _ImageOps = _pillow()
+    width, height = size
+    image = Image.new("RGBA", size)
     draw = ImageDraw.Draw(image)
     top = (244, 251, 255)
     bottom = (176, 219, 251)
     for y in range(height):
         ratio = y / max(1, height - 1)
         color = tuple(round(top[i] + (bottom[i] - top[i]) * ratio) for i in range(3))
-        draw.line([(0, y), (width, y)], fill=color)
+        draw.line([(0, y), (width, y)], fill=color + (255,))
+    return image
+
+
+def render_placeholder():
+    Image, ImageDraw, ImageFilter, ImageFont, ImageOps = _pillow()
+    width, height = AVATAR_WIDTH, AVATAR_HEIGHT
+    image = _gradient((width, height)).convert("RGB")
+    draw = ImageDraw.Draw(image)
 
     overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
@@ -495,22 +504,52 @@ def render_placeholder():
     return image.convert("RGB")
 
 
-def load_avatar(path: Path):
+def load_avatar(path: Path, fit: str = "cover"):
     Image, _ImageDraw, _ImageFilter, _ImageFont, ImageOps = _pillow()
     if not path.is_file():
         raise CardError(f"找不到头像文件：{path}")
+    if fit not in ("cover", "contain"):
+        raise CardError(f"不支持的适配方式：{fit}")
     try:
         with Image.open(path) as source:
             image = source.convert("RGBA")
-            image = ImageOps.fit(
-                image,
-                (AVATAR_WIDTH, AVATAR_HEIGHT),
-                method=Image.Resampling.LANCZOS,
-                centering=(0.5, 0.5),
-            )
-            return image.convert("RGB")
+            canvas = _gradient((AVATAR_WIDTH, AVATAR_HEIGHT))
+            if fit == "contain":
+                ratio = min(AVATAR_WIDTH / image.width, AVATAR_HEIGHT / image.height)
+                size = (
+                    max(1, round(image.width * ratio)),
+                    max(1, round(image.height * ratio)),
+                )
+                image = image.resize(size, Image.Resampling.LANCZOS)
+                canvas.alpha_composite(
+                    image,
+                    ((AVATAR_WIDTH - size[0]) // 2, (AVATAR_HEIGHT - size[1]) // 2),
+                )
+            else:
+                image = ImageOps.fit(
+                    image,
+                    (AVATAR_WIDTH, AVATAR_HEIGHT),
+                    method=Image.Resampling.LANCZOS,
+                    centering=(0.5, 0.5),
+                )
+                canvas.alpha_composite(image)
+            return canvas.convert("RGB")
     except (OSError, ValueError) as exc:
         raise CardError(f"读取头像失败：{exc}") from exc
+
+
+def load_existing_card_image(path: Path):
+    Image, _ImageDraw, _ImageFilter, _ImageFont, _ImageOps = _pillow()
+    try:
+        with Image.open(path) as source:
+            if source.size != (AVATAR_WIDTH, AVATAR_HEIGHT):
+                raise CardError(f"现有卡片尺寸异常：{source.size}")
+            image = source.convert("RGBA")
+            if image.getchannel("A").getextrema() == (255, 255):
+                return image.convert("RGB")
+            return image
+    except (OSError, ValueError) as exc:
+        raise CardError(f"读取现有卡片头像失败：{exc}") from exc
 
 
 def save_png(image, out: Path, card: dict) -> bytes:
@@ -547,7 +586,18 @@ def parse_args(argv):
     )
     parser.add_argument("--card", type=Path, default=DEFAULT_CARD, help="卡片 JSON 路径")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="输出 PNG 路径")
-    parser.add_argument("--avatar", type=Path, default=None, help="可选：512x768 头像源图（自动居中裁剪）")
+    parser.add_argument(
+        "--avatar",
+        type=Path,
+        default=None,
+        help="可选：头像源图；不指定时沿用输出 PNG 里已有的头像，首次构建才生成占位图",
+    )
+    parser.add_argument(
+        "--fit",
+        choices=("cover", "contain"),
+        default="cover",
+        help="头像适配：cover 居中裁剪（默认），contain 完整保留并留边",
+    )
     parser.add_argument("--check", action="store_true", help="只校验 JSON，不生成 PNG")
     return parser.parse_args(argv)
 
@@ -571,11 +621,14 @@ def main(argv=None) -> int:
             print("\n[完成] 卡片结构校验通过（未生成 PNG）。")
             return 0
         if args.avatar is not None:
-            image = load_avatar(args.avatar)
-            print(f"\n使用头像：{args.avatar}")
+            image = load_avatar(args.avatar, args.fit)
+            print(f"\n使用头像：{args.avatar}（{args.fit}）")
+        elif args.out.is_file():
+            image = load_existing_card_image(args.out)
+            print(f"\n未指定 --avatar，沿用现有卡片头像：{args.out}")
         else:
             image = render_placeholder()
-            print("\n未指定 --avatar，使用内置占位头像。")
+            print("\n未指定 --avatar 且没有现有卡片，使用内置占位头像。")
         png = save_png(image, args.out, card)
         verify_png(args.out, card)
         embedded = json.dumps(card, ensure_ascii=True, separators=(",", ":"))

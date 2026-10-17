@@ -29,7 +29,7 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| [Nakatsukasa-Kirino-Card.png](Nakatsukasa-Kirino-Card.png) | **推荐**：内嵌角色数据的 PNG，带占位头像，导入即用 |
+| [Nakatsukasa-Kirino-Card.png](Nakatsukasa-Kirino-Card.png) | **推荐**：内嵌角色数据的 PNG，带头像，导入即用 |
 | [Nakatsukasa-Kirino-Card.json](Nakatsukasa-Kirino-Card.json) | 纯 JSON 版，方便查看和二次编辑；导入后没有头像 |
 | [tools/build_card.py](tools/build_card.py) | 改完 JSON 后重新生成 PNG、校验结构、替换头像 |
 
@@ -55,11 +55,14 @@
 修改 `Nakatsukasa-Kirino-Card.json` 后运行：
 
 ```powershell
-# 重新生成默认占位头像的 PNG
+# 重建卡片（未指定 --avatar 时沿用当前 PNG 的头像）
 python tools/build_card.py
 
-# 用自己的立绘（自动居中裁剪为 512x768）
+# 用自己的立绘：默认居中裁剪为 512x768
 python tools/build_card.py --avatar 你的图片.png
+
+# 想保留完整立绘、不裁切（透明背景会铺浅蓝渐变）
+python tools/build_card.py --avatar 你的图片.png --fit contain
 
 # 只校验 JSON，不生成 PNG
 python tools/build_card.py --check
@@ -69,7 +72,7 @@ python tools/build_card.py --check
 
 **注意**
 
-- 头像是浅蓝警察主题的**占位图**，不是官方立绘；换图方法见上。
+- 头像使用中务桐乃立绘素材（非官方卡面）；换图方法见上。
 - 用卡片时不要再把原 Prompt 重复贴进对话，避免重复设定。
 - 角色卡能改善设定加载、开场、示例与长期一致性，但回答质量仍取决于模型、预设、上下文和温度。
 - 卡片依赖酒馆的「角色人物书 / Character Lorebook」功能（默认启用）。如果发现吹雪、康娜等资料没加载，检查该功能是否关闭。
