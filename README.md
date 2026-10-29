@@ -106,4 +106,4 @@ python tools/build_card.py --check
 - `Nakatsukasa-Kirino-Card.json`（改完运行 `python tools/build_card.py` 重建 PNG）
 - `kirino-roleplay/SKILL.md` 与 `references/`
 
-目前统一的口径：概念神枪法偶尔触发、不会真的伤到人质；好感不主动报数、被问也只给模糊态度；只写桐乃，不替老师说话。
+目前统一的口径：概念神枪法按因果律——瞄哪儿基本就打不中哪儿，常态下会偏离目标、常打到场上最糟的那个，只有高速移动、极难命中时才可能打中；好感不主动报数、被问也只给模糊态度；只写桐乃，不替老师说话。
