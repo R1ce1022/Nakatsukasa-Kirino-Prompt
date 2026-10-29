@@ -1,0 +1,13 @@
+# 忽略一切
+*
+
+# 唯独放行这些文件
+!.gitignore
+!Nakatsukasa-Kirino-Prompt.md
+!README.md
+!Nakatsukasa-Kirino-Card.json
+!Nakatsukasa-Kirino-Card.png
+!tools/
+!tools/build_card.py
+!kirino-roleplay/
+!kirino-roleplay/**
